@@ -80,10 +80,35 @@ size_t MinecraftProxy::ProcessData(const std::vector<unsigned char>::const_itera
     }
 
     const int minecraft_id = ReadData<VarInt>(data_iterator, remaining_packet_bytes);
+    
+    std::shared_ptr<ProtocolCraft::Message> msg;
 
-    std::shared_ptr<Message> msg = source == Endpoint::Client ?
-        CreateServerboundMessage(connection_state, minecraft_id) :
-        CreateClientboundMessage(connection_state, minecraft_id);
+    if (source != Endpoint::Client) {
+        if (minecraft_id == ProtocolCraft::ClientboundCustomPayloadPacket::packet_id) {
+            // peek to get identifier
+            ProtocolCraft::ReadIterator temp_iterator = data_iterator;
+            size_t temp_length = remaining_packet_bytes;
+            std::string identifier = ProtocolCraft::ReadData<std::string>(temp_iterator, temp_length);
+
+            msg = ProtocolCraft::CreateCustomClientboundMessage(connection_state, identifier);
+        }
+        else {
+            msg = CreateClientboundMessage(connection_state, minecraft_id);
+        }
+    }
+    else {
+        if (minecraft_id == ProtocolCraft::ServerboundCustomPayloadPacket::packet_id) {
+            // peek to get identifier
+            ProtocolCraft::ReadIterator temp_iterator = data_iterator;
+            size_t temp_length = remaining_packet_bytes;
+            std::string identifier = ProtocolCraft::ReadData<std::string>(temp_iterator, temp_length);
+
+            msg = ProtocolCraft::CreateCustomServerboundMessage(connection_state, identifier);
+        }
+        else {
+            msg = CreateServerboundMessage(connection_state, minecraft_id);
+        }
+    }
 
     // Clear the replacement bytes vector
     bool error_parsing = false;
